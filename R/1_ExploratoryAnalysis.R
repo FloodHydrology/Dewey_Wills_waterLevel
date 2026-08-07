@@ -6,9 +6,9 @@
 # Three inundation metrics (hydroperiod, water-table recession rate, and
 # inundation event count) computed per well over a common 74-day window,
 # then compared across soil type, all-species mortality, oak mortality, and
-# plot elevation. Figures assembled with patchwork: one figure per grouping
-# variable, stacking the three metrics in a column. Export block at the end
-# sizes figures for PowerPoint (centered, with margins -- not slide-filling).
+# plot elevation. Boxplot figures assembled with patchwork -- three metrics
+# in a ROW per grouping variable. Export block sizes figures for PowerPoint
+# (centered, with margins -- not slide-filling).
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -45,7 +45,7 @@ mort_levels <- c("None", "Low", "High")
 #Shared theme -- sized up slightly for projection legibility on slides.
 theme_dewey <- theme_bw(base_size = 14) +
   theme(
-    axis.title   = element_text(size = 16),
+    axis.title   = element_text(size = 16, lineheight = 0.9),
     axis.text    = element_text(size = 12),
     legend.title = element_text(size = 13),
     plot.title   = element_text(size = 15),
@@ -144,14 +144,20 @@ site_metrics %>%
 #Helper functions --------------------------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #Boxplot for a categorical grouping.
-box_panel <- function(data, metric, group, xlab, ylab) {
-  data %>%
+#angle_x rotates the x labels (use for long category names like soil types).
+box_panel <- function(data, metric, group, xlab, ylab, angle_x = 0) {
+  p <- data %>%
     filter(!is.na(.data[[group]])) %>%
     ggplot(aes(x = .data[[group]], y = .data[[metric]])) +
     geom_boxplot(outlier.shape = NA) +
     geom_jitter(width = 0.15, colour = "steelblue", size = 2, alpha = 0.7) +
     labs(x = xlab, y = ylab) +
     theme_dewey
+  
+  if (angle_x != 0) {
+    p <- p + theme(axis.text.x = element_text(angle = angle_x, hjust = 1))
+  }
+  p
 }
 
 #Scatter vs elevation with lm fit + Spearman rho in the subtitle.
@@ -176,10 +182,11 @@ lab_evt   <- "Inundation events\n[count]"
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #Figure 1: all three metrics vs SOIL TYPE -------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Row of 3 metrics -> each panel keeps its own x-label (own x-axis at bottom).
 fig_soil <-
-  box_panel(site_metrics, "hydroperiod",    "soil_type", NULL, lab_hydro) /
-  box_panel(site_metrics, "recession_rate", "soil_type", NULL, lab_rec)   /
-  box_panel(site_metrics, "n_events",       "soil_type", "Soil type", lab_evt) +
+  (box_panel(site_metrics, "hydroperiod",    "soil_type", "Soil type", lab_hydro, angle_x = 45) |
+     box_panel(site_metrics, "recession_rate", "soil_type", "Soil type", lab_rec,   angle_x = 45) |
+     box_panel(site_metrics, "n_events",       "soil_type", "Soil type", lab_evt,   angle_x = 45)) +
   plot_annotation(title = "Inundation metrics by soil type")
 
 fig_soil
@@ -188,9 +195,9 @@ fig_soil
 #Figure 2: all three metrics vs ALL-SPECIES MORTALITY -------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 fig_mort <-
-  box_panel(site_metrics, "hydroperiod",    "Mortality_all", NULL, lab_hydro) /
-  box_panel(site_metrics, "recession_rate", "Mortality_all", NULL, lab_rec)   /
-  box_panel(site_metrics, "n_events",       "Mortality_all", "All-species mortality", lab_evt) +
+  (box_panel(site_metrics, "hydroperiod",    "Mortality_all", "All-species mortality", lab_hydro) |
+     box_panel(site_metrics, "recession_rate", "Mortality_all", "All-species mortality", lab_rec)   |
+     box_panel(site_metrics, "n_events",       "Mortality_all", "All-species mortality", lab_evt)) +
   plot_annotation(title = "Inundation metrics by all-species mortality")
 
 fig_mort
@@ -199,9 +206,9 @@ fig_mort
 #Figure 3: all three metrics vs OAK MORTALITY --------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 fig_oak <-
-  box_panel(site_metrics, "hydroperiod",    "Mortality_oak", NULL, lab_hydro) /
-  box_panel(site_metrics, "recession_rate", "Mortality_oak", NULL, lab_rec)   /
-  box_panel(site_metrics, "n_events",       "Mortality_oak", "Oak mortality", lab_evt) +
+  (box_panel(site_metrics, "hydroperiod",    "Mortality_oak", "Oak mortality", lab_hydro) |
+     box_panel(site_metrics, "recession_rate", "Mortality_oak", "Oak mortality", lab_rec)   |
+     box_panel(site_metrics, "n_events",       "Mortality_oak", "Oak mortality", lab_evt)) +
   plot_annotation(title = "Inundation metrics by oak mortality")
 
 fig_oak
@@ -209,10 +216,11 @@ fig_oak
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #Figure 4: all three metrics vs PLOT ELEVATION -------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Row of 3 scatters.
 fig_elev <-
-  elev_panel(site_metrics, "hydroperiod",    lab_hydro) /
-  elev_panel(site_metrics, "recession_rate", lab_rec)   /
-  elev_panel(site_metrics, "n_events",       lab_evt) +
+  (elev_panel(site_metrics, "hydroperiod",    lab_hydro) |
+     elev_panel(site_metrics, "recession_rate", lab_rec)   |
+     elev_panel(site_metrics, "n_events",       lab_evt)) +
   plot_annotation(title = "Inundation metrics vs plot elevation")
 
 fig_elev
@@ -273,12 +281,13 @@ fig_evt_rec
 #Slides are 13.33 x 7.5 in (16:9). Figures are sized to sit centered with
 #margins -- NOT to fill the slide. 300 dpi keeps them crisp when scaled.
 #bg = "white" prevents transparent PNGs that look broken on a slide master.
+dir.create("output", showWarnings = FALSE)
 
-#Stacked columns (3 metrics tall) -> tall/narrow
-ggsave("output/fig_soil.png", fig_soil, width = 5, height = 7, dpi = 300, bg = "white")
-ggsave("output/fig_mort.png", fig_mort, width = 5, height = 7, dpi = 300, bg = "white")
-ggsave("output/fig_oak.png",  fig_oak,  width = 5, height = 7, dpi = 300, bg = "white")
-ggsave("output/fig_elev.png", fig_elev, width = 5, height = 7, dpi = 300, bg = "white")
+#Rows of 3 metrics -> landscape (wide, short)
+ggsave("output/fig_soil.png", fig_soil, width = 10, height = 4, dpi = 300, bg = "white")
+ggsave("output/fig_mort.png", fig_mort, width = 10, height = 4, dpi = 300, bg = "white")
+ggsave("output/fig_oak.png",  fig_oak,  width = 10, height = 4, dpi = 300, bg = "white")
+ggsave("output/fig_elev.png", fig_elev, width = 10, height = 4, dpi = 300, bg = "white")
 
 #Single scatters -> landscape, leaves slide margins
 ggsave("output/fig_regime.png",  fig_regime,  width = 7, height = 5, dpi = 300, bg = "white")

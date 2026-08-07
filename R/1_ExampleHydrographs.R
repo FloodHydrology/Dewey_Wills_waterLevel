@@ -66,7 +66,7 @@ hydro_panel <- function(data, this_site, title, show_y = TRUE) {
     geom_line(colour = "steelblue", lwd = 0.75) +
     coord_cartesian(ylim = y_lims) +
     labs(x = NULL,
-         y = if (show_y) "Water level\n[cm]" else NULL,
+         y = if (show_y) "Water level [cm]" else NULL,
          title = title) +
     theme_dewey
 }
